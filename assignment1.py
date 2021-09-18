@@ -4,6 +4,11 @@ import bs4
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
+from string import punctuation
+
+import re
+import json
+
 request_res = requests.get("https://www.imdb.com/chart/top/")
 
 soup = bs4.BeautifulSoup(request_res.text, 'lxml')
@@ -38,6 +43,8 @@ def movies_synopsis_func(movie_id):
     return movies_synopsis
 synopsis = movies_synopsis_func(ids)
 
+# creating a bag of words of synopsis and addin that in the dictionary with key as film_id
+
 def bag_of_words(string):
     stop_words = set(stopwords.words('english'))
     word_tokens = word_tokenize(string)
@@ -53,7 +60,21 @@ def bag_of_words(string):
 dictionary_movie_data = {}
 i = 0
 for string in synopsis:
-    dictionary_movie_data[ids[i]] = bag_of_words(string)
+    my_punctuation = punctuation.replace("'", "")
+    new_str = string.translate(str.maketrans("", "", my_punctuation))
+    dictionary_movie_data[ids[i]] = bag_of_words(new_str)
     i+=1
 
-print(dictionary_movie_data)
+
+# api data fetching
+
+def fetch_api_data(id):
+    pattern = r"\D{2}\d{7}"
+    if re.compile(pattern).match(id).group()==id:
+        response = requests.get(f"http://www.omdbapi.com/?i={id}&apikey=1db04143")
+        api_info = response.json()
+        return api_info
+    
+for i in ids:
+    fetch_api_data(i)
+
