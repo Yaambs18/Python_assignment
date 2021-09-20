@@ -8,6 +8,7 @@ from string import punctuation
 
 import re
 import json
+import csv
 
 request_res = requests.get("https://www.imdb.com/chart/top/")
 
@@ -49,20 +50,15 @@ def bag_of_words(string):
     stop_words = set(stopwords.words('english'))
     word_tokens = word_tokenize(string)
     filtered_sentence = [word for word in word_tokens if not word.lower() in stop_words]
- 
-    filtered_sentence = []
-    for i in word_tokens:
-        if i not in stop_words:
-            filtered_sentence.append(i)
-
-    return filtered_sentence
+    bag_of_word = ' '.join(filtered_sentence)
+    return bag_of_word
 
 dictionary_movie_data = {}
 i = 0
 for string in synopsis:
     my_punctuation = punctuation.replace("'", "")
     new_str = string.translate(str.maketrans("", "", my_punctuation))
-    dictionary_movie_data[ids[i]] = bag_of_words(new_str)
+    dictionary_movie_data[ids[i]] = {"Synopsis" : bag_of_words(new_str)}
     i+=1
 
 
@@ -74,7 +70,19 @@ def fetch_api_data(id):
         response = requests.get(f"http://www.omdbapi.com/?i={id}&apikey=1db04143")
         api_info = response.json()
         return api_info
-    
+
+
 for i in ids:
-    fetch_api_data(i)
+    api_call = fetch_api_data(i)
+    dictionary_movie_data[i]['Genre'] = api_call['Genre']
+    dictionary_movie_data[i]['Actors'] = api_call['Actors']
+
+
+fields = ['movie_id', 'Synopsis', 'Genre', 'Actors']
+
+with open("movies_data.csv", "w") as csvfile:
+    writer = csv.DictWriter(csvfile, fields)
+    writer.writeheader()
+    for key in dictionary_movie_data:
+        writer.writerow({field: dictionary_movie_data[key].get(field) or key for field in fields})
 
