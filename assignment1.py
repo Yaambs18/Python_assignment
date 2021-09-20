@@ -10,20 +10,24 @@ import re
 import json
 import csv
 
-request_res = requests.get("https://www.imdb.com/chart/top/")
-
-soup = bs4.BeautifulSoup(request_res.text, 'lxml')
 
 # Fetching the Movie ids for top 5 movies
 def movies_id_func():
     movies_ids = []
+    try:
+        request_res = requests.get("https://www.imdb.com/chart/top/")
+        soup = bs4.BeautifulSoup(request_res.text, 'lxml')
 
-
-    for i in range(5):
-        movie_id = soup.select(".titleColumn")[i]('a')[0]['href'][7:-1]
-        movies_ids.append(movie_id)
-
-    return movies_ids
+        for i in range(5):
+            movie_id = soup.select(".titleColumn")[i]('a')[0]['href'][7:-1]
+            movies_ids.append(movie_id)
+        return movies_ids
+    except IndexError:
+        print("Incorrect Index parsed")
+    except requests.exceptions.ConnectionError:
+        print("Connection Error, Check your Internet connectivity")
+    except:
+        print("Invalid URL")
 
 ids = movies_id_func()
 
@@ -32,11 +36,9 @@ ids = movies_id_func()
 def movies_synopsis_func(movie_id):
     movies_synopsis = []
 
-    j = 1
     for i in movie_id:
-        request_movie_link = requests.get(f"https://www.imdb.com/title/{i}/?pf_rd_m=A2FGELUUNOQJNL&pf_rd_p=e31d89dd-322d-4646-8962-327b42fe94b1&pf_rd_r=SCCQEDQ3A70KXDN2HEMG&pf_rd_s=center-1&pf_rd_t=15506&pf_rd_i=top&ref_=chttp_tt_{j}")
+        request_movie_link = requests.get(f"https://www.imdb.com/title/{i}")
         if request_movie_link.status_code == 200:
-            j += 1
             format_response = bs4.BeautifulSoup(request_movie_link.text, 'lxml')            
             movies_synopsis.append(format_response.select('.ipc-html-content')[1].getText())
         else:
