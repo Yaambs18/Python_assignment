@@ -1,16 +1,16 @@
 import requests
 import bs4
-
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-
 from string import punctuation
-
 import re
-import json
 import csv
-
 import os
+import logging
+
+logging.basicConfig(filename="assignment_file.log", format='%(asctime)s %(message)s', filemode='w')
+logger=logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
 # Fetching the Movie ids for top 5 movies
 base_url = "https://www.imdb.com/chart/top/"
@@ -26,12 +26,12 @@ def movies_id_func(url):
             movies_ids.append(movie_id)
         return movies_ids
     except requests.exceptions.ConnectionError:
-        print("Connection Error, Check your Internet connectivity")
+        logging.error("Connection Error, Check your Internet connectivity")
     except requests.exceptions.MissingSchema:
-        print("Invalid URL")
+        logging.error("Invalid URL")
         
-
 ids = movies_id_func(base_url)
+logging.info(ids)
 # Fetching the synposis for the above movies and storings
 
 def movies_synopsis_func(movie_id):
@@ -44,12 +44,12 @@ def movies_synopsis_func(movie_id):
                 format_response = bs4.BeautifulSoup(request_movie_link.text, 'lxml')            
                 movies_synopsis.append(format_response.select('.ipc-html-content')[1].getText())
             else:
-                print("Incorrect URL")
+                logging.info("Incorrect URL")
         return movies_synopsis
     except TypeError:
-        print("None object returned")
+        logging.error("None object returned")
 synopsis = movies_synopsis_func(ids)
-
+logging.info(synopsis)
 # creating a bag of words of synopsis and addin that in the dictionary with key as film_id
 
 def bag_of_words(string):
@@ -60,7 +60,7 @@ def bag_of_words(string):
         bag_of_word = ' '.join(filtered_sentence)
         return bag_of_word
     except TypeError:
-        print("Missing argument")
+        logging.error("Missing argument")
 
 dictionary_movie_data = {}
 i = 0
@@ -70,6 +70,7 @@ for string in synopsis:
     dictionary_movie_data[ids[i]] = {"Synopsis" : bag_of_words(new_str)}
     i+=1
 
+logging.info(dictionary_movie_data)
 
 # api data fetching
 
@@ -81,12 +82,16 @@ def fetch_api_data(id):
             api_info = response.json()
             return api_info
     except TypeError:
-        print("Missing arguments or Unexpected argument")
+        logging.error("Missing arguments or Unexpected argument")
 for i in ids:
     api_call = fetch_api_data(i)
-    dictionary_movie_data[i]['Genre'] = api_call['Genre']
-    dictionary_movie_data[i]['Actors'] = api_call['Actors']
+    try:
+        dictionary_movie_data[i]['Genre'] = api_call['Genre']
+        dictionary_movie_data[i]['Actors'] = api_call['Actors']
+    except KeyError:
+        logging.error("json file returned None")
 
+logging.info(dictionary_movie_data)
 fields = ['movie_id', 'Synopsis', 'Genre', 'Actors']
 
 # csv file creation
@@ -125,4 +130,6 @@ def fetch_movies_data():
             rows = [row for row in reader if row['Actors']==item or row['Genre']==item]
             return rows
 
-print(fetch_movies_data())
+fetched_data = fetch_movies_data()
+print(fetched_data)
+logging.info(fetched_data)
