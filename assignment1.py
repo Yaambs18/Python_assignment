@@ -15,8 +15,12 @@ logger.setLevel(logging.DEBUG)
 # Fetching the Movie ids for top 5 movies
 base_url = "https://www.imdb.com/chart/top/"
 
+movies_ids = []
+movies_synopsis = []
+dictionary_movie_data = {}
+
 def movies_id_func(url):
-    movies_ids = []
+    
     try:
         request_res = requests.get(url)
         soup = bs4.BeautifulSoup(request_res.text, 'lxml')
@@ -30,13 +34,9 @@ def movies_id_func(url):
     except requests.exceptions.MissingSchema:
         logging.error("Invalid URL")
         
-ids = movies_id_func(base_url)
-logging.info(ids)
 # Fetching the synposis for the above movies and storings
 
 def movies_synopsis_func(movie_id):
-    movies_synopsis = []
-
     try:
         for i in movie_id:
             request_movie_link = requests.get(f"https://www.imdb.com/title/{i}")
@@ -48,8 +48,7 @@ def movies_synopsis_func(movie_id):
         return movies_synopsis
     except TypeError:
         logging.error("None object returned")
-synopsis = movies_synopsis_func(ids)
-logging.info(synopsis)
+
 # creating a bag of words of synopsis and addin that in the dictionary with key as film_id
 
 def bag_of_words(string):
@@ -62,38 +61,26 @@ def bag_of_words(string):
     except TypeError:
         logging.error("Missing argument")
 
-dictionary_movie_data = {}
-i = 0
-for string in synopsis:
-    my_punctuation = punctuation.replace("'", "")
-    new_str = string.translate(str.maketrans("", "", my_punctuation))
-    dictionary_movie_data[ids[i]] = {"Synopsis" : bag_of_words(new_str)}
-    i+=1
-
-logging.info(dictionary_movie_data)
-
 # api data fetching
 
-def fetch_api_data(id):
+def fetch_api_data(movie_ids):
     try:
-        pattern = r"\D{2}\d{7}"
-        if re.compile(pattern).match(id).group()==id:
-            response = requests.get(f"http://www.omdbapi.com/?i={id}&apikey=1db04143")
-            api_info = response.json()
-            return api_info
+        for id in movie_ids:
+            pattern = r"\D{2}\d{7}"
+            if re.compile(pattern).match(id).group()==id:
+                response = requests.get(f"http://www.omdbapi.com/?i={id}&apikey=1db04143")
+                api_info = response.json()
+            try:
+                dictionary_movie_data[id]['Genre'] = api_info['Genre']
+                dictionary_movie_data[id]['Actors'] = api_info['Actors']
+                dictionary_movie_data[id]['Title'] = api_info['Title']
+            except KeyError:
+                logging.error("json file returned None")
     except TypeError:
-        logging.error("Missing arguments or Unexpected argument")
-for i in ids:
-    api_call = fetch_api_data(i)
-    try:
-        dictionary_movie_data[i]['Genre'] = api_call['Genre']
-        dictionary_movie_data[i]['Actors'] = api_call['Actors']
-    except KeyError:
-        logging.error("json file returned None")
+            logging.error("Missing arguments or Unexpected argument")
+    return dictionary_movie_data
 
-logging.info(dictionary_movie_data)
-fields = ['movie_id', 'Synopsis', 'Genre', 'Actors']
-
+fields = ['movie_id','Title', 'Synopsis', 'Genre', 'Actors']
 # csv file creation
 
 def write_csv():
@@ -101,7 +88,7 @@ def write_csv():
         csvfile = open("movies_data.csv", "r")
         reader = csv.DictReader(csvfile)
         for row in reader:
-            for item in ids:
+            for item in movies_ids:
                 if row['movie_id']==item:
                     dictionary_movie_data.pop(item)
 
@@ -119,7 +106,6 @@ def write_csv():
             for key in dictionary_movie_data:
                 writer.writerow({field: dictionary_movie_data[key].get(field) or key for field in fields})
 
-write_csv()
 
 def fetch_movies_data():
     
@@ -127,9 +113,25 @@ def fetch_movies_data():
     if item and not item.isdigit():
         with open("movies_data.csv", 'r') as file:
             reader = csv.DictReader(file)
-            rows = [row for row in reader if row['Actors']==item or row['Genre']==item]
-            return rows
+            movie_names = []
+            for row in reader:
+                if item in row['Actors'] or item in row['Genre']:
+                    movie_names.append(row['Title'])
+            return movie_names
 
-fetched_data = fetch_movies_data()
-print(fetched_data)
-logging.info(fetched_data)
+
+if __name__ == "__main__":
+    logging.info(movies_id_func(base_url))
+    logging.info(movies_synopsis_func(movies_ids))
+    i = 0
+    for string in movies_synopsis:
+        my_punctuation = punctuation.replace("'", "")
+        new_str = string.translate(str.maketrans("", "", my_punctuation))
+        dictionary_movie_data[movies_ids[i]] = {"Synopsis" : bag_of_words(new_str)}
+        i+=1
+
+    logging.info(fetch_api_data(movies_ids))
+    write_csv()
+    fetched_data = fetch_movies_data()
+    print(fetched_data)
+    logging.info(fetched_data)
